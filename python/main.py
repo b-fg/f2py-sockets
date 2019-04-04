@@ -5,7 +5,7 @@ server = InterfaceSocket()
 server.open()
 
 client, address = server.server.accept()
-client.settimeout(server.timeout)
+# client.settimeout(server.timeout)
 driver = Driver(client)
 print(" @SOCKET:   Client asked for connection from " + str(address) + ". Now hand-shaking.")
 

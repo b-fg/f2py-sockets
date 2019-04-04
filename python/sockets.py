@@ -16,8 +16,7 @@ NTIMEOUT = 20       # Intents to receive data
 
 def Message(mystr):
     """Returns a header of standard length HDRLEN."""
-    return string.ljust(string.upper(mystr), HDRLEN)
-    # return mystr.capitalize().ljust(HDRLEN)
+    return mystr.upper().ljust(HDRLEN)
 
 
 class Disconnected(Exception):
@@ -74,15 +73,16 @@ class DriverSocket(socket.socket):
     Attributes:
        _buf: A string buffer to hold the reply from the other connection.
     """
-    def __init__(self, socket):
+    def __init__(self, msocket):
         """Initialises DriverSocket.
 
         Args:
            socket: A socket through which the communication should be done.
         """
-        super(DriverSocket, self).__init__(_sock=socket)
+        super().__init__(family=msocket.family, type=msocket.type, proto=msocket.proto, fileno=msocket.fileno())
+        # super().__init__(fileno=int(msocket.fileno()))
         self._buf = np.zeros(0, np.byte)
-        if socket:
+        if msocket:
             self.peername = self.getpeername()
         else:
             self.peername = "no_socket"
@@ -93,7 +93,7 @@ class DriverSocket(socket.socket):
         Args:
            msg: The message to send through the socket.
         """
-        return self.sendall(Message(msg))
+        return self.sendall(Message(msg).encode())
 
     def recv_msg(self, l=HDRLEN):
         """Get the next message send through the socket.
@@ -101,7 +101,9 @@ class DriverSocket(socket.socket):
         Args:
            l: Length of the accepted message. Defaults to HDRLEN.
         """
-        return self.recv(l)
+        a = self.recv(l).decode()
+        print(a)
+        return a
 
     def recvall(self, dest):
         """Gets the data in dest. Dest is the empty data array
@@ -153,7 +155,7 @@ class Driver(DriverSocket):
         Args:
            socket: A socket through which the communication should be done.
         """
-        super(Driver, self).__init__(socket=socket)
+        super(Driver, self).__init__(msocket=socket)
         self.waitstatus = False
         self.status = Status.Up
 
@@ -223,7 +225,7 @@ class Driver(DriverSocket):
         Returns:
            Data array
         """
-        self.sendall(Message("getdata")) # Send a message to the driver to get the data and wait for reply
+        self.sendall(Message("getdata").encode()) # Send a message to the driver to get the data and wait for reply
         reply = ""
         while True:
             try:
