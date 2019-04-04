@@ -1,23 +1,8 @@
-"""Deals with the socket communication between the i-PI and drivers.
-
-Deals with creating the socket, transmitting and receiving data, accepting and
-removing different driver routines and the parallelization of the force
-calculation.
-"""
-
-
-import sys
-import os
 import socket
-import select
 import string
-import time
-import threading
-
 import numpy as np
 
 from sockets import Driver, InterfaceSocket
-from messages import verbosity, warning, info
 
 HDRLEN = 12
 
@@ -66,12 +51,12 @@ class Status(object):
     Busy = 16
     Timeout = 32
 
-s = InterfaceSocket(mode='inet')
+s = InterfaceSocket()
 s.open()
 client, address = s.server.accept()
 client.settimeout(s.timeout)
 driver = Driver(client)
-info(" @SOCKET:   Client asked for connection from " + str(address) + ". Now hand-shaking.", verbosity.low)
+print(" @SOCKET:   Client asked for connection from " + str(address) + ". Now hand-shaking.")
 # print(driver.get_status())
 
 driver.sendall(Message("getforce"))
@@ -80,10 +65,10 @@ while True:
     try:
         reply = driver.recv_msg()
     except socket.timeout:
-        warning(" @SOCKET:   Timeout in getforce, trying again!", verbosity.low)
+        print(" @SOCKET:   Timeout in getforce, trying again!")
         continue
     except:
-        warning(" @SOCKET:   Error while receiving message: %s" % (reply), verbosity.low)
+        print(" @SOCKET:   Error while receiving message: %s" % (reply))
         raise Disconnected()
 
     # a = Message("forceready")
@@ -92,7 +77,7 @@ while True:
     if reply == Message("forceready"):
         break
     else:
-        warning(" @SOCKET:   Unexpected getforce reply: %s" % (reply), verbosity.low)
+        print(" @SOCKET:   Unexpected getforce reply: %s" % (reply))
     if reply == "":
         raise Disconnected()
 
