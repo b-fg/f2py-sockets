@@ -2,13 +2,10 @@
 Deals with the socket communication between Python (server) and Fortran (client or driver)
 """
 
-import os
 import socket
 import select
-import string
 import numpy as np
-
-from messages import verbosity, warning, info
+import string
 
 __all__ = ['InterfaceSocket']
 
@@ -20,6 +17,7 @@ NTIMEOUT = 20       # Intents to receive data
 def Message(mystr):
     """Returns a header of standard length HDRLEN."""
     return string.ljust(string.upper(mystr), HDRLEN)
+    # return mystr.capitalize().ljust(HDRLEN)
 
 
 class Disconnected(Exception):
@@ -127,7 +125,7 @@ class DriverSocket(socket.socket):
               bpart = 1
               bpart = self.recv_into(self._buf[bpos:], blen-bpos)
             except socket.timeout:
-              print " @SOCKET:   Timeout in status recvall, trying again!"
+              print(" @SOCKET:   Timeout in status recvall, trying again!")
               timeout = True
               pass
             if (not timeout and bpart == 0):
@@ -202,7 +200,7 @@ class Driver(DriverSocket):
         elif reply == Message("havedata"):
             return Status.Up | Status.HasData
         else:
-            warning(" @SOCKET:    Unrecognized reply: " + str(reply), verbosity.low)
+            print(" @SOCKET:    Unrecognized reply: " + str(reply))
             return Status.Up
 
     def get_status(self):
