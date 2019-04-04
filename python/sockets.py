@@ -106,7 +106,7 @@ class DriverSocket(socket.socket):
         return self.recv(l)
 
     def recvall(self, dest):
-        """Gets the data.
+        """Gets the data in dest. Dest is the empty data array
 
         Args:
            dest: Object to be read into.
@@ -122,7 +122,6 @@ class DriverSocket(socket.socket):
 
         while bpos < blen:
             timeout = False
-
             # post-2.5 version: slightly more compact for modern python versions
             try:
               bpart = 1
@@ -216,40 +215,51 @@ class Driver(DriverSocket):
         return status
 
 
-    def getforce(self):
-        """Gets the potential energy, force and virial from the driver.
+    def get_data(self):
+        """Gets the data from the driver.
 
         Raises:
            InvalidStatus: Raised if the status is not HasData.
            Disconnected: Raised if the driver has disconnected.
 
         Returns:
-           A list of the form [potential, force, virial, extra].
+           Data array
         """
-
-        self.sendall(Message("getforce"))
+        self.sendall(Message("getdata")) # Send a message to the driver to get the data and wait for reply
         reply = ""
         while True:
             try:
                 reply = self.recv_msg()
             except socket.timeout:
-                warning(" @SOCKET:   Timeout in getforce, trying again!", verbosity.low)
+                print(" @SOCKET:   Timeout in getdata, trying again!",)
                 continue
             except:
-                warning(" @SOCKET:   Error while receiving message: %s" % (reply), verbosity.low)
+                print(" @SOCKET:   Error while receiving message: %s" % (reply))
                 raise Disconnected()
-            print(reply)
-            if reply == Message("getforce"):
+
+            if reply == Message("dataready"):
                 break
             else:
-                warning(" @SOCKET:   Unexpected getforce reply: %s" % (reply), verbosity.low)
+                print(" @SOCKET:   Unexpected getdata reply: %s" % (reply))
             if reply == "":
                 raise Disconnected()
 
-        # A = np.zeros(4*2, np.float64)
-        # A = self.recvall(A)
-        # print(A)
-        assert False
+        # First get the dimensions of the array
+        dims = np.int32()
+        dims = self.recvall(dims)
+        # Then get the size of each dimension
+        sh = ()
+        for i in range(dims):
+            d = np.int32()
+            d = self.recvall(d)
+            sh += (d,)
+        # Then get the array
+        A = np.zeros(np.prod(sh), np.float64)
+        A = self.recvall(A)
+
+        print(sh)
+        return np.reshape(A, sh, order='F')
+
 
 class InterfaceSocket(object):
     """Host server class.

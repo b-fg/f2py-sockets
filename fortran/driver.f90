@@ -73,12 +73,14 @@ PROGRAM DRIVER
 
     ! DMW
     DOUBLE PRECISION efield(3)
-    INTEGER i, j
+    INTEGER i, j, d
 
-    DOUBLE PRECISION, ALLOCATABLE :: A(:,:)
     DOUBLE PRECISION, ALLOCATABLE :: msgb(:)
-
-
+!    integer :: dims = 2
+!    integer :: sh(2) = [4,2]
+    DOUBLE PRECISION :: A(4,2)
+     integer :: dims
+     integer, allocatable :: sh(:)
 
     ! parse the command line parameters
     ! intialize defaults
@@ -223,36 +225,46 @@ PROGRAM DRIVER
         cell_ih = RESHAPE(mtxbuf, (/3,3/))
         hasdata = .true. ! Signal that we have data ready to be passed back to the wrapper
 
-     ELSEIF (trim(header) == "GETFORCE") THEN  ! The driver calculation is finished, it's time to send the results back to the wrapper
+!     ELSEIF (trim(header) == "GETFORCE") THEN  ! The driver calculation is finished, it's time to send the results back to the wrapper
+!        ! Data must be re-formatted (and units converted) in the units and shapes used in the wrapper
+!         sh = [4,2]
+!         allocate(A,reshape([1,2,3,4,5,6,7,8], sh))
+!!         A = reshape([1,2,3,4,5,6,7,8], [4,2])
+!         write(*,*) A
+!         write(*,*) size(A)
+!
+!         msgbuffer = reshape(A, [8])
+!         write(*,*) msgbuffer
+!
+!        CALL writebuffer(socket,"FORCEREADY  ",MSGLEN)
+!        WRITE(*,*) "    !write!=> ", "FORCEREADY  "
+!        CALL writebuffer(socket,msgbuffer,size(A)) ! Writing the forces
+!        WRITE(*,*) "    !write!=> forces:", msgbuffer
+!        hasdata = .false.
+
+     ELSEIF (trim(header) == "GETDATA") THEN  ! The driver calculation is finished, it's time to send the results back to the wrapper
         ! Data must be re-formatted (and units converted) in the units and shapes used in the wrapper
-        A = reshape([1,2,3,4,5,6,7,8], [4,2])
-         write(*,*) A
-         write(*,*) size(A)
 
-         msgbuffer = reshape(A, [8])
-         write(*,*) msgbuffer
+         A = reshape([1,2,3,4,5,6,7,8], shape(A))
+         write(*,*) A(:,1)
+         write(*,*) size(A), shape(A)
+        dims = size(shape(A))
+         sh = shape(A)
 
-        CALL writebuffer(socket,"FORCEREADY  ",MSGLEN)
-        WRITE(*,*) "    !write!=> ", "FORCEREADY  "
+        CALL writebuffer(socket,"DATAREADY   ",MSGLEN)
+        WRITE(*,*) "    !write!=> ", "DATAREADY   "
+        CALL writebuffer(socket,dims)  ! Writing the number of dimensions
+        WRITE(*,*) "    !write!=> dims:", dims
+        do d=1,dims
+            CALL writebuffer(socket,sh(d))  ! Writing the number of dimensions
+         end do
+        WRITE(*,*) "    !write!=> sh:", shape(A)
+
+        msgbuffer = reshape(A, [size(A)])
+        write(*,*) msgbuffer
         CALL writebuffer(socket,msgbuffer,size(A)) ! Writing the forces
         WRITE(*,*) "    !write!=> forces:", msgbuffer
         hasdata = .false.
-
-
-     ELSEIF (trim(header) == "GETARRAY") THEN
-
-         A = reshape([1,2,3,4,5,6,7,8], [4,2])
-         write(*,*) A
-
-         msgb = reshape(A, [1])
-         write(*,*) A
-
-        CALL writebuffer(socket,"ARRAYREADY  ",MSGLEN)
-        IF (verbose > 1) WRITE(*,*) "    !write!=> ", "FORCEREADY  "
-        CALL writebuffer(socket,msgbuffer,3*nat) ! Writing the forces
-        IF (verbose > 1) WRITE(*,*) "    !write!=> forces:", msgbuffer
-        hasdata = .false.
-
 
      ELSE
         WRITE(*,*) " Unexpected header ", header

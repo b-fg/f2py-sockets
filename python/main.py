@@ -51,36 +51,13 @@ class Status(object):
     Busy = 16
     Timeout = 32
 
-s = InterfaceSocket()
-s.open()
-client, address = s.server.accept()
-client.settimeout(s.timeout)
+server = InterfaceSocket()
+server.open()
+
+client, address = server.server.accept()
+client.settimeout(server.timeout)
 driver = Driver(client)
 print(" @SOCKET:   Client asked for connection from " + str(address) + ". Now hand-shaking.")
-# print(driver.get_status())
 
-driver.sendall(Message("getforce"))
-reply = ""
-while True:
-    try:
-        reply = driver.recv_msg()
-    except socket.timeout:
-        print(" @SOCKET:   Timeout in getforce, trying again!")
-        continue
-    except:
-        print(" @SOCKET:   Error while receiving message: %s" % (reply))
-        raise Disconnected()
-
-    # a = Message("forceready")
-    # print(reply + '=' + a + '.')
-    # print(reply == Message("forceready"))
-    if reply == Message("forceready"):
-        break
-    else:
-        print(" @SOCKET:   Unexpected getforce reply: %s" % (reply))
-    if reply == "":
-        raise Disconnected()
-
-A = np.zeros(4*2, np.float64)
-A = driver.recvall(A)
+A = driver.get_data()
 print(A)
