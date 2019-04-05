@@ -116,8 +116,8 @@ program driver
 
         elseif (trim(header) == "GETDATA") then  ! Serevr signaling driver to get data
             a = reshape([1,2,3,4,5,6,7,8], shape(a))
-            write(*,*) a
-            write(*,*) size(a), shape(a)
+!            write(*,*) a
+!            write(*,*) size(a), shape(a)
             dims = size(shape(a))
             sh = shape(a)
             
@@ -131,9 +131,8 @@ program driver
             write(*,*) "    !write!=> sh:", shape(a)
 
             msgbuffer = reshape(a, [size(a)])   ! flatten data
-            write(*,*) msgbuffer
             call writebuffer(socket, msgbuffer, size(a)) ! writing data
-            write(*,*) "    !write!=> forces:", msgbuffer
+            write(*,*) "    !write!=> A:", msgbuffer
             hasdata = .false.
 
         else
