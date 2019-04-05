@@ -1,7 +1,7 @@
 ! The main program which runs our driver test case potentials
 !
 ! Copyright (C) 2013, Joshua More and Michele Ceriotti
-!
+
 ! Permission is hereby granted, free of charge, to any person obtaining
 ! a copy of this software and associated documentation files (the
 ! "Software"), to deal in the Software without restriction, including
@@ -22,63 +22,63 @@
 ! SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 !
 !
-! Currently the potentials implemented are the Lennard-Jones
-! potential, the Silvera-Goldman para-hydrogen potential and
+! Currently the potentials implemented are the lennard-jones
+! potential, the silvera-goldman para-hydrogen potential and
 ! the ideal gas (i.e. no interaction at all)
 !
 ! driver.x -h localhost -p 31415
 
-PROGRAM DRIVER
-     USE F90SOCKETS, ONLY : open_socket, writebuffer, readbuffer
+program driver
+     use f90sockets, only : open_socket, writebuffer, readbuffer
      use, intrinsic :: iso_c_binding
 
-    IMPLICIT NONE
+    implicit none
 
-    ! SOCKET VARIABLES
-    INTEGER, PARAMETER :: MSGLEN=12   ! length of the headers of the driver/wrapper communication protocol
-    INTEGER socket, inet, port        ! socket ID & address of the server
-    CHARACTER(LEN=1024) :: host
+    ! socket variables
+    integer, parameter :: msglen=12   ! length of the headers of the driver/wrapper communication protocol
+    integer socket, inet, port        ! socket id & address of the server
+    character(len=1024) :: host
 
-    ! COMMAND LINE PARSING
-    CHARACTER(LEN=1024) :: cmdbuffer
-    INTEGER ccmd, vstyle
-    INTEGER verbose
-    INTEGER commas(2), par_count      ! stores the index of commas in the parameter string
-    DOUBLE PRECISION vpars(2)         ! array to store the parameters of the potential
+    ! command line parsing
+    character(len=1024) :: cmdbuffer
+    integer ccmd, vstyle
+    integer verbose
+    integer commas(2), par_count      ! stores the index of commas in the parameter string
+    double precision vpars(2)         ! array to store the parameters of the potential
 
-    ! SOCKET COMMUNICATION BUFFERS
-    CHARACTER(LEN=12) :: header
-    LOGICAL :: isinit=.false., hasdata=.false.
-    INTEGER cbuf, rid
-    CHARACTER(LEN=2048) :: initbuffer      ! it's unlikely a string this large will ever be passed...
-    DOUBLE PRECISION, ALLOCATABLE :: msgbuffer(:)
+    ! socket communication buffers
+    character(len=12) :: header
+    logical :: isinit=.false., hasdata=.false.
+    integer cbuf, rid
+    character(len=2048) :: initbuffer      ! it's unlikely a string this large will ever be passed...
+    double precision, allocatable :: msgbuffer(:)
 
-    ! PARAMETERS OF THE SYSTEM (CELL, ATOM POSITIONS, ...)
-    DOUBLE PRECISION sigma, eps, rc, rn, ks ! potential parameters
-    DOUBLE PRECISION stiffness ! lennard-jones polymer
-    INTEGER n_monomer ! lennard-jones polymer
-    INTEGER nat
-    DOUBLE PRECISION pot, dpot, dist
-    DOUBLE PRECISION, ALLOCATABLE :: atoms(:,:), forces(:,:), datoms(:,:)
-    DOUBLE PRECISION cell_h(3,3), cell_ih(3,3), virial(3,3), mtxbuf(9), dip(3), charges(3), dummy(3,3,3), vecdiff(3)
+    ! parameters of the system (cell, atom positions, ...)
+    double precision sigma, eps, rc, rn, ks ! potential parameters
+    double precision stiffness ! lennard-jones polymer
+    integer n_monomer ! lennard-jones polymer
+    integer nat
+    double precision pot, dpot, dist
+    double precision, allocatable :: atoms(:,:), forces(:,:), datoms(:,:)
+    double precision cell_h(3,3), cell_ih(3,3), virial(3,3), mtxbuf(9), dip(3), charges(3), dummy(3,3,3), vecdiff(3)
 
-    DOUBLE PRECISION volume
-    DOUBLE PRECISION, PARAMETER :: fddx = 1.0d-5
+    double precision volume
+    double precision, parameter :: fddx = 1.0d-5
 
-    ! NEIGHBOUR LIST ARRAYS
-    INTEGER, DIMENSION(:), ALLOCATABLE :: n_list, index_list
-    DOUBLE PRECISION init_volume, init_rc ! needed to correctly adjust the cut-off radius for variable cell dynamics
-    DOUBLE PRECISION, ALLOCATABLE :: last_atoms(:,:) ! Holds the positions when the neighbour list is created
-    DOUBLE PRECISION displacement ! Tracks how far each atom has moved since the last call of nearest_neighbours
+    ! neighbour list arrays
+    integer, dimension(:), allocatable :: n_list, index_list
+    double precision init_volume, init_rc ! needed to correctly adjust the cut-off radius for variable cell dynamics
+    double precision, allocatable :: last_atoms(:,:) ! holds the positions when the neighbour list is created
+    double precision displacement ! tracks how far each atom has moved since the last call of nearest_neighbours
 
-    ! DMW
-    DOUBLE PRECISION efield(3)
-    INTEGER i, j, d
+    ! dmw
+    double precision efield(3)
+    integer i, j, d
 
-    DOUBLE PRECISION, ALLOCATABLE :: msgb(:)
+    double precision, allocatable :: msgb(:)
 !    integer :: dims = 2
 !    integer :: sh(2) = [4,2]
-    DOUBLE PRECISION :: A(4,2)
+    double precision :: a(4,2)
      integer :: dims
      integer, allocatable :: sh(:)
 
@@ -95,197 +95,197 @@ PROGRAM DRIVER
     volume = 0.0d0
     init_volume = 0.0d0
 
-    ! READ COMMAND ARGUMENTS
-    DO i = 1, COMMAND_ARGUMENT_COUNT()
-         CALL GET_COMMAND_ARGUMENT(i, cmdbuffer)
-         IF (cmdbuffer == "-u") THEN ! flag for unix socket
+    ! read command arguments
+    do i = 1, command_argument_count()
+         call get_command_argument(i, cmdbuffer)
+         if (cmdbuffer == "-u") then ! flag for unix socket
             inet = 0
             ccmd = 0
-         ELSEIF (cmdbuffer == "-h") THEN ! read the hostname
+         elseif (cmdbuffer == "-h") then ! read the hostname
             ccmd = 1
-         ELSEIF (cmdbuffer == "-p") THEN ! reads the port number
+         elseif (cmdbuffer == "-p") then ! reads the port number
             ccmd = 2
-         ELSEIF (cmdbuffer == "-m") THEN ! reads the style of the potential function
+         elseif (cmdbuffer == "-m") then ! reads the style of the potential function
             ccmd = 3
-         ELSEIF (cmdbuffer == "-o") THEN ! reads the parameters
+         elseif (cmdbuffer == "-o") then ! reads the parameters
             ccmd = 4
-         ELSEIF (cmdbuffer == "-v") THEN ! flag for verbose standard output
+         elseif (cmdbuffer == "-v") then ! flag for verbose standard output
             verbose = 1
-         ELSEIF (cmdbuffer == "-vv") THEN ! flag for verbose standard output
+         elseif (cmdbuffer == "-vv") then ! flag for verbose standard output
             verbose = 2
-         ELSE
-            IF (ccmd == 0) THEN
-               WRITE(*,*) " Unrecognized command line argument", ccmd
-               CALL helpmessage
-               STOP "ENDED"
-            ENDIF
-            IF (ccmd == 1) THEN
+         else
+            if (ccmd == 0) then
+               write(*,*) " unrecognized command line argument", ccmd
+               call helpmessage
+               stop "ended"
+            endif
+            if (ccmd == 1) then
                host = trim(cmdbuffer)//achar(0)
-            ELSEIF (ccmd == 2) THEN
-               READ(cmdbuffer,*) port
-            ELSEIF (ccmd == 3) THEN
-               IF (trim(cmdbuffer) == "lj") THEN
+            elseif (ccmd == 2) then
+               read(cmdbuffer,*) port
+            elseif (ccmd == 3) then
+               if (trim(cmdbuffer) == "lj") then
                   vstyle = 1
-               ELSEIF (trim(cmdbuffer) == "sg") THEN
+               elseif (trim(cmdbuffer) == "sg") then
                   vstyle = 2
-               ELSEIF (trim(cmdbuffer) == "harm") THEN
+               elseif (trim(cmdbuffer) == "harm") then
                   vstyle = 3
-               ELSEIF (trim(cmdbuffer) == "morse") THEN
+               elseif (trim(cmdbuffer) == "morse") then
                   vstyle = 4
-               ELSEIF (trim(cmdbuffer) == "zundel") THEN
+               elseif (trim(cmdbuffer) == "zundel") then
                   vstyle = 5
-               ELSEIF (trim(cmdbuffer) == "qtip4pf") THEN
+               elseif (trim(cmdbuffer) == "qtip4pf") then
                   vstyle = 6
-               ELSEIF (trim(cmdbuffer) == "linear") THEN
+               elseif (trim(cmdbuffer) == "linear") then
                   vstyle = 7
-               ELSEIF (trim(cmdbuffer) == "pswater") THEN
+               elseif (trim(cmdbuffer) == "pswater") then
                   vstyle = 8
-               ELSEIF (trim(cmdbuffer) == "lepsm1") THEN
+               elseif (trim(cmdbuffer) == "lepsm1") then
                   vstyle = 9
-               ELSEIF (trim(cmdbuffer) == "lepsm2") THEN
+               elseif (trim(cmdbuffer) == "lepsm2") then
                   vstyle = 10
-               ELSEIF (trim(cmdbuffer) == "qtip4pf-efield") THEN
+               elseif (trim(cmdbuffer) == "qtip4pf-efield") then
                   vstyle = 11
-               ELSEIF (trim(cmdbuffer) == "eckart") THEN
+               elseif (trim(cmdbuffer) == "eckart") then
                   vstyle = 20
-               ELSEIF (trim(cmdbuffer) == "ch4hcbe") THEN
+               elseif (trim(cmdbuffer) == "ch4hcbe") then
                   vstyle = 21
-               ELSEIF (trim(cmdbuffer) == "ljpolymer") THEN
+               elseif (trim(cmdbuffer) == "ljpolymer") then
                   vstyle = 22
-               ELSEIF (trim(cmdbuffer) == "gas") THEN
+               elseif (trim(cmdbuffer) == "gas") then
                   vstyle = 0  ! ideal gas
-               ELSE
-                  WRITE(*,*) " Unrecognized potential type ", trim(cmdbuffer)
-                  WRITE(*,*) " Use -m [gas|lj|sg|harm|morse|zundel|qtip4pf|lepsm1|lepsm2|qtip4pf-efield|eckart|ch4hcbe|ljpolymer] "
-                  STOP "ENDED"
-               ENDIF
-            ELSEIF (ccmd == 4) THEN
+               else
+                  write(*,*) " unrecognized potential type ", trim(cmdbuffer)
+                  write(*,*) " use -m [gas|lj|sg|harm|morse|zundel|qtip4pf|lepsm1|lepsm2|qtip4pf-efield|eckart|ch4hcbe|ljpolymer] "
+                  stop "ended"
+               endif
+            elseif (ccmd == 4) then
                par_count = 1
                commas(1) = 0
-               DO WHILE (index(cmdbuffer(commas(par_count)+1:), ',') > 0)
+               do while (index(cmdbuffer(commas(par_count)+1:), ',') > 0)
                   commas(par_count + 1) = index(cmdbuffer(commas(par_count)+1:), ',') + commas(par_count)
-                  READ(cmdbuffer(commas(par_count)+1:commas(par_count + 1)-1),*) vpars(par_count)
+                  read(cmdbuffer(commas(par_count)+1:commas(par_count + 1)-1),*) vpars(par_count)
                   par_count = par_count + 1
-               ENDDO
-               READ(cmdbuffer(commas(par_count)+1:),*) vpars(par_count)
-            ENDIF
+               enddo
+               read(cmdbuffer(commas(par_count)+1:),*) vpars(par_count)
+            endif
             ccmd = 0
-         ENDIF
-      ENDDO
+         endif
+      enddo
 
-    ! OPEN PORT
-    IF (verbose > 0) THEN
-     WRITE(*,*) " DRIVER - Connecting to host ", trim(host)
-     IF (inet > 0) THEN
-        WRITE(*,*) " on port ", port, " using an internet socket."
-     ELSE
-        WRITE(*,*) " using an UNIX socket."
-     ENDIF
-    ENDIF
-    CALL open_socket(socket, inet, port, host)
+    ! open port
+    if (verbose > 0) then
+     write(*,*) " driver - connecting to host ", trim(host)
+     if (inet > 0) then
+        write(*,*) " on port ", port, " using an internet socket."
+     else
+        write(*,*) " using an unix socket."
+     endif
+    endif
+    call open_socket(socket, inet, port, host)
 
-    ! MAIN LOOP
+    ! main loop
     nat = -1
-    DO WHILE (.true.) ! Loops forever (or until the wrapper ends!)
+    do while (.true.) ! loops forever (or until the wrapper ends!)
 
-     ! Reads from the socket one message header
-     CALL readbuffer(socket, header, MSGLEN)
-     IF (verbose > 0) WRITE(*,*) " Message from server: ", trim(header)
+     ! reads from the socket one message header
+     call readbuffer(socket, header, msglen)
+     if (verbose > 0) write(*,*) " message from server: ", trim(header)
 
-     IF (trim(header) == "STATUS") THEN
-        ! The wrapper is inquiring on what we are doing
-        IF (.not. isinit) THEN
-           CALL writebuffer(socket,"NEEDINIT    ",MSGLEN)  ! Signals that we need initialization data
-           IF (verbose > 1) WRITE(*,*) "    !write!=> ", "NEEDINIT    "
-        ELSEIF (hasdata) THEN
-           CALL writebuffer(socket,"HAVEDATA    ",MSGLEN)  ! Signals that we are done computing and can return forces
-           IF (verbose > 1) WRITE(*,*) "    !write!=> ", "HAVEDATA    "
-        ELSE
-           CALL writebuffer(socket,"READY       ",MSGLEN)  ! We are idling and eager to compute something
-           IF (verbose > 1) WRITE(*,*) "    !write!=> ", "READY       "
-        ENDIF
+     if (trim(header) == "status") then
+        ! the wrapper is inquiring on what we are doing
+        if (.not. isinit) then
+           call writebuffer(socket,"needinit    ",msglen)  ! signals that we need initialization data
+           if (verbose > 1) write(*,*) "    !write!=> ", "needinit    "
+        elseif (hasdata) then
+           call writebuffer(socket,"havedata    ",msglen)  ! signals that we are done computing and can return forces
+           if (verbose > 1) write(*,*) "    !write!=> ", "havedata    "
+        else
+           call writebuffer(socket,"ready       ",msglen)  ! we are idling and eager to compute something
+           if (verbose > 1) write(*,*) "    !write!=> ", "ready       "
+        endif
 
-     ELSEIF (trim(header) == "INIT") THEN     ! The driver is kindly providing a string for initialization
-        CALL readbuffer(socket, rid)
-        IF (verbose > 1) WRITE(*,*) "    !read!=> RID: ", rid
-        CALL readbuffer(socket, cbuf)
-        IF (verbose > 1) WRITE(*,*) "    !read!=> init_lenght: ", cbuf
-        CALL readbuffer(socket, initbuffer, cbuf)
-        IF (verbose > 1) WRITE(*,*) "    !read!=> init_string: ", cbuf
-        IF (verbose > 0) WRITE(*,*) " Initializing system from wrapper, using ", trim(initbuffer)
-        isinit=.true. ! We actually do nothing with this string, thanks anyway. Could be used to pass some information (e.g. the input parameters, or the index of the replica, from the driver
+     elseif (trim(header) == "init") then     ! the driver is kindly providing a string for initialization
+        call readbuffer(socket, rid)
+        if (verbose > 1) write(*,*) "    !read!=> rid: ", rid
+        call readbuffer(socket, cbuf)
+        if (verbose > 1) write(*,*) "    !read!=> init_lenght: ", cbuf
+        call readbuffer(socket, initbuffer, cbuf)
+        if (verbose > 1) write(*,*) "    !read!=> init_string: ", cbuf
+        if (verbose > 0) write(*,*) " initializing system from wrapper, using ", trim(initbuffer)
+        isinit=.true. ! we actually do nothing with this string, thanks anyway. could be used to pass some information (e.g. the input parameters, or the index of the replica, from the driver
 
-     ELSEIF (trim(header) == "POSDATA") THEN  ! The driver is sending the positions of the atoms. Here is where we do the calculation!
-        ! Parses the flow of data from the socket
-        CALL readbuffer(socket, mtxbuf, 9)  ! Cell matrix
-        IF (verbose > 1) WRITE(*,*) "    !read!=> cell: ", mtxbuf
-        cell_h = RESHAPE(mtxbuf, (/3,3/))
-        CALL readbuffer(socket, mtxbuf, 9)  ! Inverse of the cell matrix (so we don't have to invert it every time here)
-        IF (verbose > 1) WRITE(*,*) "    !read!=> cell-1: ", mtxbuf
-        cell_ih = RESHAPE(mtxbuf, (/3,3/))
-        hasdata = .true. ! Signal that we have data ready to be passed back to the wrapper
+     elseif (trim(header) == "posdata") then  ! the driver is sending the positions of the atoms. here is where we do the calculation!
+        ! parses the flow of data from the socket
+        call readbuffer(socket, mtxbuf, 9)  ! cell matrix
+        if (verbose > 1) write(*,*) "    !read!=> cell: ", mtxbuf
+        cell_h = reshape(mtxbuf, (/3,3/))
+        call readbuffer(socket, mtxbuf, 9)  ! inverse of the cell matrix (so we don't have to invert it every time here)
+        if (verbose > 1) write(*,*) "    !read!=> cell-1: ", mtxbuf
+        cell_ih = reshape(mtxbuf, (/3,3/))
+        hasdata = .true. ! signal that we have data ready to be passed back to the wrapper
 
-!     ELSEIF (trim(header) == "GETFORCE") THEN  ! The driver calculation is finished, it's time to send the results back to the wrapper
-!        ! Data must be re-formatted (and units converted) in the units and shapes used in the wrapper
+!     elseif (trim(header) == "getforce") then  ! the driver calculation is finished, it's time to send the results back to the wrapper
+!        ! data must be re-formatted (and units converted) in the units and shapes used in the wrapper
 !         sh = [4,2]
-!         allocate(A,reshape([1,2,3,4,5,6,7,8], sh))
-!!         A = reshape([1,2,3,4,5,6,7,8], [4,2])
-!         write(*,*) A
-!         write(*,*) size(A)
+!         allocate(a,reshape([1,2,3,4,5,6,7,8], sh))
+!!         a = reshape([1,2,3,4,5,6,7,8], [4,2])
+!         write(*,*) a
+!         write(*,*) size(a)
 !
-!         msgbuffer = reshape(A, [8])
+!         msgbuffer = reshape(a, [8])
 !         write(*,*) msgbuffer
 !
-!        CALL writebuffer(socket,"FORCEREADY  ",MSGLEN)
-!        WRITE(*,*) "    !write!=> ", "FORCEREADY  "
-!        CALL writebuffer(socket,msgbuffer,size(A)) ! Writing the forces
-!        WRITE(*,*) "    !write!=> forces:", msgbuffer
+!        call writebuffer(socket,"forceready  ",msglen)
+!        write(*,*) "    !write!=> ", "forceready  "
+!        call writebuffer(socket,msgbuffer,size(a)) ! writing the forces
+!        write(*,*) "    !write!=> forces:", msgbuffer
 !        hasdata = .false.
 
-     ELSEIF (trim(header) == "GETDATA") THEN  ! The driver calculation is finished, it's time to send the results back to the wrapper
-        ! Data must be re-formatted (and units converted) in the units and shapes used in the wrapper
+     elseif (trim(header) == "getdata") then  ! the driver calculation is finished, it's time to send the results back to the wrapper
+        ! data must be re-formatted (and units converted) in the units and shapes used in the wrapper
 
-         A = reshape([1,2,3,4,5,6,7,8], shape(A))
-         write(*,*) A(:,1)
-         write(*,*) size(A), shape(A)
-        dims = size(shape(A))
-         sh = shape(A)
+         a = reshape([1,2,3,4,5,6,7,8], shape(a))
+         write(*,*) a(:,1)
+         write(*,*) size(a), shape(a)
+        dims = size(shape(a))
+         sh = shape(a)
 
-        CALL writebuffer(socket,"DATAREADY   ",MSGLEN)
-        WRITE(*,*) "    !write!=> ", "DATAREADY   "
-        CALL writebuffer(socket,dims)  ! Writing the number of dimensions
-        WRITE(*,*) "    !write!=> dims:", dims
+        call writebuffer(socket,"dataready   ",msglen)
+        write(*,*) "    !write!=> ", "dataready   "
+        call writebuffer(socket,dims)  ! writing the number of dimensions
+        write(*,*) "    !write!=> dims:", dims
         do d=1,dims
-            CALL writebuffer(socket,sh(d))  ! Writing the number of dimensions
+            call writebuffer(socket,sh(d))  ! writing the number of dimensions
          end do
-        WRITE(*,*) "    !write!=> sh:", shape(A)
+        write(*,*) "    !write!=> sh:", shape(a)
 
-        msgbuffer = reshape(A, [size(A)])
+        msgbuffer = reshape(a, [size(a)])
         write(*,*) msgbuffer
-        CALL writebuffer(socket,msgbuffer,size(A)) ! Writing the forces
-        WRITE(*,*) "    !write!=> forces:", msgbuffer
+        call writebuffer(socket,msgbuffer,size(a)) ! writing the forces
+        write(*,*) "    !write!=> forces:", msgbuffer
         hasdata = .false.
 
-     ELSE
-        WRITE(*,*) " Unexpected header ", header
-        STOP "ENDED"
-     ENDIF
-    ENDDO
-    IF (nat > 0) DEALLOCATE(atoms, forces, msgbuffer)
+     else
+        write(*,*) " unexpected header ", header
+        stop "ended"
+     endif
+    enddo
+    if (nat > 0) deallocate(atoms, forces, msgbuffer)
 
-CONTAINS
-    SUBROUTINE helpmessage
-     ! Help banner
-     WRITE(*,*) " SYNTAX: driver.x [-u] -h hostname -p port -m [gas|lj|sg|harm|morse|zundel|qtip4pf|pswater|lepsm1|lepsm2|qtip4p-efield|eckart|ch4hcbe] "
-     WRITE(*,*) "         -o 'comma_separated_parameters' [-v] "
-     WRITE(*,*) ""
-     WRITE(*,*) " For LJ potential use -o sigma,epsilon,cutoff "
-     WRITE(*,*) " For SG potential use -o cutoff "
-     WRITE(*,*) " For 1D harmonic oscillator use -o k "
-     WRITE(*,*) " For 1D morse oscillator use -o r0,D,a"
-     WRITE(*,*) " For qtip4pf-efield use -o Ex,Ey,Ez with Ei in V/nm"
-     WRITE(*,*) " For ljpolymer use -o n_monomer,sigma,epsilon,cutoff "
-     WRITE(*,*) " For the ideal gas, qtip4pf, zundel, ch4hcbe or nasa no options needed! "
-    END SUBROUTINE helpmessage
+contains
+    subroutine helpmessage
+     ! help banner
+     write(*,*) " syntax: driver.x [-u] -h hostname -p port -m [gas|lj|sg|harm|morse|zundel|qtip4pf|pswater|lepsm1|lepsm2|qtip4p-efield|eckart|ch4hcbe] "
+     write(*,*) "         -o 'comma_separated_parameters' [-v] "
+     write(*,*) ""
+     write(*,*) " for lj potential use -o sigma,epsilon,cutoff "
+     write(*,*) " for sg potential use -o cutoff "
+     write(*,*) " for 1d harmonic oscillator use -o k "
+     write(*,*) " for 1d morse oscillator use -o r0,d,a"
+     write(*,*) " for qtip4pf-efield use -o ex,ey,ez with ei in v/nm"
+     write(*,*) " for ljpolymer use -o n_monomer,sigma,epsilon,cutoff "
+     write(*,*) " for the ideal gas, qtip4pf, zundel, ch4hcbe or nasa no options needed! "
+    end subroutine helpmessage
 
-END PROGRAM
+end program

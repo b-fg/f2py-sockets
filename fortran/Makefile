@@ -25,24 +25,19 @@ FLAGS=-g -O3 -Wall
 CFLAGS=$(FLAGS)
 FFLAGS=$(FLAGS) -ffree-line-length-none -ffixed-line-length-none -Wno-maybe-uninitialized
 
-MODULES=
-PES=
-OBJECTS=$(MODULES:%.f90=%.o) $(PES:%.f=%.o)
 FC=gfortran
 CC=gcc
+
 all: driver.x
 
 sockets.o: sockets.c
 	$(CC) $(CFLAGS) -c -o sockets.o sockets.c
 
-driver.x: $(OBJECTS) sockets.o fsockets.o driver.o | $(OBJECTS)
+driver.x: sockets.o fsockets.o driver.o
 	$(FC) $(FFLAGS) -o driver.x $^
 
 %.o: %.f90
 	$(FC) $(FFLAGS) -c $< -o $@
 
-%.o: %.f
-	$(FC) $(FFLAGS) -c $< -o $@
-
 clean:
-	rm -f *.o *.mod *.x */*.mod */*.o
+	rm -f *.o *.mod *.x
