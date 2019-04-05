@@ -1,11 +1,9 @@
 """
 Deals with the socket communication between Python (server) and Fortran (client or driver)
 """
-
 import socket
 import select
 import numpy as np
-import string
 
 __all__ = ['InterfaceSocket']
 
@@ -73,16 +71,15 @@ class DriverSocket(socket.socket):
     Attributes:
        _buf: A string buffer to hold the reply from the other connection.
     """
-    def __init__(self, msocket):
+    def __init__(self, socket):
         """Initialises DriverSocket.
 
         Args:
            socket: A socket through which the communication should be done.
         """
-        super().__init__(family=msocket.family, type=msocket.type, proto=msocket.proto, fileno=msocket.fileno())
-        # super().__init__(fileno=int(msocket.fileno()))
+        super().__init__(family=socket.family, type=socket.type, proto=socket.proto, fileno=socket.fileno())
         self._buf = np.zeros(0, np.byte)
-        if msocket:
+        if socket:
             self.peername = self.getpeername()
         else:
             self.peername = "no_socket"
@@ -155,14 +152,14 @@ class Driver(DriverSocket):
         Args:
            socket: A socket through which the communication should be done.
         """
-        super(Driver, self).__init__(msocket=socket)
+        super(Driver, self).__init__(socket=socket)
         self.waitstatus = False
         self.status = Status.Up
 
 
     def shutdown(self, how=socket.SHUT_RDWR):
         """Tries to send an exit message to clients to let them exit gracefully."""
-        self.sendall(Message("exit"))
+        self.sendall(Message("exit").encode())
         self.status = Status.Disconnected
         super(DriverSocket, self).shutdown(how)
 
@@ -178,13 +175,13 @@ class Driver(DriverSocket):
                 # This can sometimes hang with no timeout. Using the recommended 60 s.
                 readable, writable, errored = select.select([], [self], [], 60)
                 if self in writable:
-                    self.sendall(Message("status"))
+                    self.sendall(Message("status").encode())
                     self.waitstatus = True
             except socket.error:
                 return Status.Disconnected
 
         try:
-            reply = self.recv(HDRLEN)
+            reply = self.recv(HDRLEN).decode()
             self.waitstatus = False  # got some kind of reply
         except socket.timeout:
             print(" @SOCKET:   Timeout in status recv!")

@@ -23,7 +23,7 @@
 
 FLAGS=-g -O3 -Wall
 CFLAGS=$(FLAGS)
-FFLAGS=$(FLAGS) -ffree-line-length-none -ffixed-line-length-none -Wno-maybe-uninitialized
+FFLAGS=$(FLAGS) -ffree-line-length-none -ffixed-line-length-none
 
 FC=gfortran
 CC=gcc
