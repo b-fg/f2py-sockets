@@ -1,7 +1,7 @@
 
 ## **F2Py Sockets**
 ### A minimal working example on how to use sockets to transfer data from Fortran to Python and viceversa
-This repository shows how to pass a n-dimensional array from Fortran to Python and viceversa. The Fortran `fsockets.f90` (wrapper of the `sockets.c`), the driver.f90 and the `socket.py` files were found in the [i-pi](https://github.com/i-pi/i-pi) repository. Here  the `driver.f90` and the `sockets.py` files have been modified to show a simple example on how to easily transfer data. Refer to the [i-pi](https://github.com/i-pi/i-pi) repository for extended funcionalities.
+This repository shows how to pass a n-dimensional array from Fortran to Python and viceversa. The Fortran `fsockets.f90` (wrapper of the `sockets.c`), the driver.f90 and the `socket.py` files were found in the [i-pi](https://github.com/i-pi/i-pi) repository (see for further functionalities). Here  the `driver.f90` and the `sockets.py` files have been modified to show a simple example on how to easily transfer data.
 
 ### How it works
 A socket is created in Python allowing remote connections on a certain `port` and `address`

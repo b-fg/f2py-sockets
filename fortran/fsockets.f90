@@ -33,11 +33,11 @@ module f90sockets
     use iso_c_binding
     implicit none
 
-    interface writebuffer
+    interface writebuffer ! Generic functions for write; depending on the data type each of this ones is selected
         module procedure writebuffer_s, writebuffer_d, writebuffer_dv, writebuffer_i, writebuffer_sp, writebuffer_spv
     end interface
 
-    interface readbuffer
+    interface readbuffer ! Generic functions for read; depending on the data type each of this ones is selected
         module procedure readbuffer_s, readbuffer_d, readbuffer_dv, readbuffer_i, readbuffer_sp, readbuffer_spv
     end interface 
 

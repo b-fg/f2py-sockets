@@ -98,9 +98,7 @@ class DriverSocket(socket.socket):
         Args:
            l: Length of the accepted message. Defaults to HDRLEN.
         """
-        a = self.recv(l).decode()
-        print(a)
-        return a
+        return self.recv(l).decode()
 
     def recvall(self, dest):
         """Gets the data in dest. Dest is the empty data array
@@ -134,7 +132,7 @@ class DriverSocket(socket.socket):
         if np.isscalar(dest):
             return np.fromstring(self._buf[0:blen], dest.dtype)[0]
         else:
-            return np.fromstring(self._buf[0:blen], dest.dtype).reshape(dest.shape)
+            return np.fromstring(self._buf[0:blen], dest.dtype).reshape(dest.shape, order='F')
 
 
 class Driver(DriverSocket):
@@ -157,11 +155,16 @@ class Driver(DriverSocket):
         self.status = Status.Up
 
 
+    def initialise(self):
+        self.sendall(Message("init").encode())
+
+
     def shutdown(self, how=socket.SHUT_RDWR):
         """Tries to send an exit message to clients to let them exit gracefully."""
         self.sendall(Message("exit").encode())
         self.status = Status.Disconnected
         super(DriverSocket, self).shutdown(how)
+
 
     def _getstatus(self):
         """Gets driver status.
@@ -202,6 +205,7 @@ class Driver(DriverSocket):
             print(" @SOCKET:    Unrecognized reply: " + str(reply))
             return Status.Up
 
+
     def get_status(self):
         """ Sets (and returns) the client internal status. Wait for an answer if
             the client is busy. """
@@ -212,7 +216,7 @@ class Driver(DriverSocket):
         return status
 
 
-    def get_data(self):
+    def get_data(self, A):
         """Gets the data from the driver.
 
         Raises:
@@ -241,21 +245,30 @@ class Driver(DriverSocket):
             if reply == "":
                 raise Disconnected()
 
-        # First get the dimensions of the array
-        dims = np.int32()
-        dims = self.recvall(dims)
-        # Then get the size of each dimension
-        sh = ()
-        for i in range(dims):
-            d = np.int32()
-            d = self.recvall(d)
-            sh += (d,)
-        # Then get the array
-        A = np.zeros(np.prod(sh), np.float32)
         A = self.recvall(A)
+        return A
 
-        print(sh)
-        return np.reshape(A, sh, order='F')
+    def send_data(self, A):
+        """Send data to the driver.
+
+        Raises:
+           InvalidStatus: Raised if the status is not HasData.
+           Disconnected: Raised if the driver has disconnected.
+
+        Returns:
+           Data array
+        """
+        if (self.status & Status.Ready):
+            try:
+                self.sendall(Message("senddata").encode())
+                self.sendall(A.flatten(order='F'))
+                self.status = Status.Up | Status.Busy
+            except:
+                print("Error in sendall, resetting status")
+                self.get_status()
+                return
+        else:
+            raise InvalidStatus("Status in sendpos was " + self.status)
 
 
 class InterfaceSocket(object):

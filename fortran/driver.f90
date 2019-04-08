@@ -40,12 +40,13 @@ program driver
 
     ! socket communication buffers
     character(len=12) :: header
-    logical :: isinit=.false., hasdata=.false.
+    logical :: isinit=.false.   ! The driver has been initialised by the server
+    logical :: hasdata=.true.   ! The driver has finished computing and can send data to server
     real(kind=4) , allocatable :: msgbuffer(:)
 
     ! data to send and receive
     real(kind=4) :: a(4,2)
-    integer :: i, d, dims
+    integer :: i, dims
     integer, allocatable :: sh(:)
 
     ! intialize defaults
@@ -83,57 +84,74 @@ program driver
     call open_socket(socket, inet, port, host)
 
     ! main loop
+    a = reshape([1,2,3,4,5,6,7,8], shape(a))
+    dims = size(shape(a))
+    sh = shape(a)
+
+    write(*,*) "Initial array is:"
+    do i=1,sh(1)
+        write(*,*) a(i,:)
+    end do
+
     do while (.true.) ! loops forever (or until the wrapper ends!)
         ! reads from the socket one message header
         call readbuffer(socket, header, msglen)
-        write(*,*) " message from server: ", trim(header)
+        write(*,*) "@ message from server: ", trim(header)
 
         if (trim(header) == "STATUS") then ! the wrapper is inquiring on what we are doing
             if (.not. isinit) then
-                call writebuffer(socket, "NEEDINIT    ", msglen)  ! signals that we need initialization dat
-                write(*,*) "    !write!=> ", "needinit    "
+                call writebuffer(socket, "NEEDINIT    ", msglen)  ! signals that we need initialization
+                write(*,*) "@ message to server: NEEDINIT"
             elseif (hasdata) then
                 call writebuffer(socket, "HAVEDATA    ", msglen)  ! signals that we are done computing and can data
-                write(*,*) "    !write!=> ", "havedata    "
+                write(*,*) "@ message to server: HAVEDATA"
             else
                  call writebuffer(socket, "READY       ", msglen)  ! we are idling and eager to compute something
-                 write(*,*) "    !write!=> ", "ready       "
+                 write(*,*) "@ message to server: READY"
             endif
 
         elseif (trim(header) == "INIT") then     ! the driver is kindly sending a string for initialization
-            write(*,*) " initializing system from wrapper"
+            write(*,*) " Initializing system from server"
             isinit=.true. ! we actually do nothing with this string, thanks anyway. could be used to pass some information (e.g. the input parameters, or the index of the replica, from the driver
 
-        elseif (trim(header) == "SENDDATA") then  ! the driver is sending the positions of the atoms. here is where we do the calculation!
-            ! parses the flow of data from the socket
-            ! call readbuffer(socket, mtxbuf, 9)  ! cell matrix
-            ! write(*,*) "    !read!=> cell: ", mtxbuf
-            ! cell_h = reshape(mtxbuf, (/3,3/))
-            ! call readbuffer(socket, mtxbuf, 9)  ! inverse of the cell matrix (so we don't have to invert it every time here)
-            ! write(*,*) "    !read!=> cell-1: ", mtxbuf
-            ! cell_ih = reshape(mtxbuf, (/3,3/))
-            ! hasdata = .true. ! signal that we have data ready to be passed back to the wrapper
+        elseif (trim(header) == "SENDDATA") then  ! Server wants to send data to the driver
+            if (.not. isinit) then
+                write(*,*) "Driver not iniliasied."
+            elseif (hasdata) then
+                write(*,*) "Driver has data to send back to server"
+            else ! Driver is ready to receive data
+                if (.not. allocated(msgbuffer)) allocate(msgbuffer(size(a)))
+                call readbuffer(socket, msgbuffer, size(a))
+                a = reshape(msgbuffer, shape(a))
 
-        elseif (trim(header) == "GETDATA") then  ! Serevr signaling driver to get data
-            a = reshape([1,2,3,4,5,6,7,8], shape(a))
-!            write(*,*) a
-!            write(*,*) size(a), shape(a)
-            dims = size(shape(a))
-            sh = shape(a)
-            
-            call writebuffer(socket, "DATAREADY   ", msglen)
-            write(*,*) "    !write!=> ", "dataready   "
-            call writebuffer(socket, dims)  ! writing the number of dimensions
-            write(*,*) "    !write!=> dims:", dims
-            do d=1,dims
-                call writebuffer(socket, sh(d))  ! writing the number of dimensions
-             end do
-            write(*,*) "    !write!=> sh:", shape(a)
+                write(*,*) "Received array from server:"
+                do i=1,sh(1)
+                    write(*,*) a(i,:)
+                end do
 
-            msgbuffer = reshape(a, [size(a)])   ! flatten data
-            call writebuffer(socket, msgbuffer, size(a)) ! writing data
-            write(*,*) "    !write!=> A:", msgbuffer
-            hasdata = .false.
+                call do_something(a)
+                hasdata = .true.
+            end if
+
+        elseif (trim(header) == "GETDATA") then  ! Server signaling driver to send data
+            if (.not. isinit) then
+                write(*,*) "Driver not iniliasied."
+            elseif (.not. hasdata) then
+                write(*,*) "Driver does not have data to send"
+            else
+                call writebuffer(socket, "DATAREADY   ", msglen)
+                write(*,*) "@ message to server: DATAREADY"
+
+                msgbuffer = reshape(a, [size(a)])   ! flatten data
+                call writebuffer(socket, msgbuffer, size(a)) ! writing data
+
+                write(*,*) "Sent array to server:"
+                do i=1,sh(1)
+                    write(*,*) a(i,:)
+                end do
+
+                hasdata = .false.
+            end if
 
         else
             write(*,*) " unexpected header ", header
@@ -143,9 +161,15 @@ program driver
 
 contains
 
-    subroutine helpmessage
-     ! help banner
-     write(*,*) " syntax: driver.x -h hostname -p port "
+    subroutine do_something(a)
+        real(kind=4), intent(inout) :: a(:,:)
+
+        call sleep(5)
+        a = a*2
+    end subroutine do_something
+
+    subroutine helpmessage ! Help banner
+        write(*,*) " syntax: driver.x -h hostname -p port "
     end subroutine helpmessage
 
 end program
