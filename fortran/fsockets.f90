@@ -114,7 +114,7 @@ contains
         integer, intent(in)                     :: psockfd
         real(kind=4), intent(in)                :: fdata
 
-        real(kind=c_double), target             :: cdata
+        real(kind=c_float), target             :: cdata
 
         cdata = fdata
         call writebuffer_csocket(psockfd, c_loc(cdata), 4)
@@ -178,7 +178,7 @@ contains
         integer, intent(in)                     :: psockfd
         real(kind=4), intent(out)               :: fdata
 
-        real(kind=c_double), target             :: cdata
+        real(kind=c_float), target              :: cdata
 
         call readbuffer_csocket(psockfd, c_loc(cdata), 4)
         fdata=cdata

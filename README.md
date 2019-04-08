@@ -27,7 +27,11 @@ while True:
 ~~~~
 
 ### Requirements
-`python3.x` and `numpy` required. Fortran and C compilers also required. Works fine with `gfortran` and `gcc` respectively. For older Python versions (2.x) check the `python_2.7` branch. The main difference is found in the creation of a `socket` object from another `socket` object.
+`python3.x` and `numpy` required. For older Python versions (2.x) check the `python_2.7` branch. The main difference is found in the creation of a `socket` object from another `socket` object.
+
+
+Fortran and C compilers also required. Works fine with `gfortran` and `gcc` respectively. The Fortran compiler choice is specifically important for the declaration of single/double precision variables in Fortran for which the (e.g.) `real(kind=4)` standard is used instead of `real*4`.
+
 
 ### Usage
 Run the Python server with

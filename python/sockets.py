@@ -251,7 +251,7 @@ class Driver(DriverSocket):
             d = self.recvall(d)
             sh += (d,)
         # Then get the array
-        A = np.zeros(np.prod(sh), np.float64)
+        A = np.zeros(np.prod(sh), np.float32)
         A = self.recvall(A)
 
         print(sh)

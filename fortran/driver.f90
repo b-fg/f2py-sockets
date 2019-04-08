@@ -41,10 +41,10 @@ program driver
     ! socket communication buffers
     character(len=12) :: header
     logical :: isinit=.false., hasdata=.false.
-    double precision, allocatable :: msgbuffer(:)
+    real(kind=4) , allocatable :: msgbuffer(:)
 
     ! data to send and receive
-    double precision :: a(4,2)
+    real(kind=4) :: a(4,2)
     integer :: i, d, dims
     integer, allocatable :: sh(:)
 
