@@ -34,11 +34,11 @@ module f90sockets
     implicit none
 
     interface writebuffer
-        module procedure writebuffer_s, writebuffer_d, writebuffer_dv, writebuffer_i                    
+        module procedure writebuffer_s, writebuffer_d, writebuffer_dv, writebuffer_i, writebuffer_sp, writebuffer_spv
     end interface
 
     interface readbuffer
-        module procedure readbuffer_s, readbuffer_d, readbuffer_dv, readbuffer_i
+        module procedure readbuffer_s, readbuffer_d, readbuffer_dv, readbuffer_i, readbuffer_sp, readbuffer_spv
     end interface 
 
     interface
@@ -98,35 +98,47 @@ contains
         end if
     end subroutine
 
-    subroutine writebuffer_d (psockfd, fdata)
-    use iso_c_binding
-    integer, intent(in)                      :: psockfd
-    real(kind=8), intent(in)                :: fdata
+    subroutine writebuffer_d(psockfd, fdata)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd
+        real(kind=8), intent(in)                :: fdata
 
-    real(kind=c_double), target              :: cdata
+        real(kind=c_double), target             :: cdata
 
-    cdata = fdata
-    call writebuffer_csocket(psockfd, c_loc(cdata), 8)
+        cdata = fdata
+        call writebuffer_csocket(psockfd, c_loc(cdata), 8)
     end subroutine
 
-    subroutine writebuffer_i (psockfd, fdata)
+    subroutine writebuffer_sp(psockfd, fdata)
         use iso_c_binding
-        integer, intent(in)                      :: psockfd, fdata
+        integer, intent(in)                     :: psockfd
+        real(kind=4), intent(in)                :: fdata
 
-        integer(kind=c_int), target              :: cdata
+        real(kind=c_double), target             :: cdata
 
         cdata = fdata
         call writebuffer_csocket(psockfd, c_loc(cdata), 4)
     end subroutine
 
-    subroutine writebuffer_s (psockfd, fstring, plen)
-        use iso_c_binding
-        integer, intent(in)                      :: psockfd
-        character(len=*), intent(in)             :: fstring
-        integer, intent(in)                      :: plen
 
-        integer                                  :: i
-        character(len=1, kind=c_char), target    :: cstring(plen)
+    subroutine writebuffer_i(psockfd, fdata)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd, fdata
+
+        integer(kind=c_int), target             :: cdata
+
+        cdata = fdata
+        call writebuffer_csocket(psockfd, c_loc(cdata), 4)
+    end subroutine
+
+    subroutine writebuffer_s(psockfd, fstring, plen)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd
+        character(len=*), intent(in)            :: fstring
+        integer, intent(in)                     :: plen
+
+        integer                                 :: i
+        character(len=1, kind=c_char), target   :: cstring(plen)
 
         do i = 1,plen
             cstring(i) = fstring(i:i)
@@ -136,42 +148,61 @@ contains
 
     subroutine writebuffer_dv(psockfd, fdata, plen)
         use iso_c_binding  
-        integer, intent(in)                      :: psockfd, plen
+        integer, intent(in)                     :: psockfd, plen
         real(kind=8), intent(in), target        :: fdata(plen)
 
         call writebuffer_csocket(psockfd, c_loc(fdata(1)), 8*plen)
     end subroutine
 
-    subroutine readbuffer_d (psockfd, fdata)
+    subroutine writebuffer_spv(psockfd, fdata, plen)
         use iso_c_binding
-        integer, intent(in)                      :: psockfd
+        integer, intent(in)                     :: psockfd, plen
+        real(kind=4), intent(in), target        :: fdata(plen)
+
+        call writebuffer_csocket(psockfd, c_loc(fdata(1)), 4*plen)
+    end subroutine
+
+    subroutine readbuffer_d(psockfd, fdata)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd
         real(kind=8), intent(out)               :: fdata
 
-        real(kind=c_double), target              :: cdata
+        real(kind=c_double), target             :: cdata
 
         call readbuffer_csocket(psockfd, c_loc(cdata), 8)
         fdata=cdata
     end subroutine
 
-    subroutine readbuffer_i (psockfd, fdata)
+    subroutine readbuffer_sp(psockfd, fdata)
         use iso_c_binding
-        integer, intent(in)                      :: psockfd
-        integer, intent(out)                     :: fdata
+        integer, intent(in)                     :: psockfd
+        real(kind=4), intent(out)               :: fdata
 
-        integer(kind=c_int), target              :: cdata
+        real(kind=c_double), target             :: cdata
+
+        call readbuffer_csocket(psockfd, c_loc(cdata), 4)
+        fdata=cdata
+    end subroutine
+
+    subroutine readbuffer_i(psockfd, fdata)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd
+        integer, intent(out)                    :: fdata
+
+        integer(kind=c_int), target             :: cdata
 
         call readbuffer_csocket(psockfd, c_loc(cdata), 4)
         fdata = cdata
     end subroutine
 
-    subroutine readbuffer_s (psockfd, fstring, plen)
+    subroutine readbuffer_s(psockfd, fstring, plen)
         use iso_c_binding
-        integer, intent(in)                      :: psockfd
-        character(len=*), intent(out)            :: fstring
-        integer, intent(in)                      :: plen
+        integer, intent(in)                     :: psockfd
+        character(len=*), intent(out)           :: fstring
+        integer, intent(in)                     :: plen
 
-        integer                                  :: i
-        character(len=1, kind=c_char), target    :: cstring(plen)
+        integer                                 :: i
+        character(len=1, kind=c_char), target   :: cstring(plen)
 
         call readbuffer_csocket(psockfd, c_loc(cstring(1)), plen)
         fstring=""   
@@ -182,9 +213,17 @@ contains
 
     subroutine readbuffer_dv(psockfd, fdata, plen)
         use iso_c_binding  
-        integer, intent(in)                      :: psockfd, plen
+        integer, intent(in)                     :: psockfd, plen
         real(kind=8), intent(out), target       :: fdata(plen)
     
         call readbuffer_csocket(psockfd, c_loc(fdata(1)), 8*plen)
+    end subroutine
+
+    subroutine readbuffer_spv(psockfd, fdata, plen)
+        use iso_c_binding
+        integer, intent(in)                     :: psockfd, plen
+        real(kind=4), intent(out), target       :: fdata(plen)
+
+        call readbuffer_csocket(psockfd, c_loc(fdata(1)), 4*plen)
     end subroutine
 end module
